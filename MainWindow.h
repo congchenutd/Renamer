@@ -25,14 +25,14 @@ protected:
 
 private slots:
     void onAdd();
-    void onPreview();
     void onRun();
     void onClean();
     void onSettings();
     void onAbout();
 
 private:
-    void add(const QStringList& filePaths);
+    void addFiles(const QStringList& filePaths);
+    void preview();
     void updateActions();
 
 private:

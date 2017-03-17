@@ -40,7 +40,6 @@ MainWindow::MainWindow(QWidget *parent) :
     ui->tableView->sortByColumn(COL_DATE, Qt::AscendingOrder);
 
     connect(ui->actionAdd,      SIGNAL(triggered()), this, SLOT(onAdd()));
-    connect(ui->actionPreview,  SIGNAL(triggered()), this, SLOT(onPreview()));
     connect(ui->actionRun,      SIGNAL(triggered()), this, SLOT(onRun()));
     connect(ui->actionEmpty,    SIGNAL(triggered()), this, SLOT(onClean()));
     connect(ui->actionSettings, SIGNAL(triggered()), this, SLOT(onSettings()));
@@ -63,14 +62,14 @@ void MainWindow::dropEvent(QDropEvent* e)
     foreach(const QUrl& url, e->mimeData()->urls())
         filePaths << url.toLocalFile();
 
-    add(filePaths);
+    addFiles(filePaths);
 }
 
-void MainWindow::add(const QStringList& filePaths)
+void MainWindow::addFiles(const QStringList& filePaths)
 {
-    foreach(const QString& fileName, filePaths)
+    foreach(const QString& filePath, filePaths)
     {
-        QFileInfo fileInfo(fileName);
+        QFileInfo fileInfo(filePath);
         int lastRow = _model.rowCount();
         _model.insertRow(lastRow);
         _model.setData(_model.index(lastRow, COL_FROM),
@@ -88,10 +87,10 @@ void MainWindow::onAdd()
     QStringList filePaths = QFileDialog::getOpenFileNames(this, tr("Open files"), ".",
                                                           "All files (*.*)");
     if(!filePaths.isEmpty())
-        add(filePaths);
+        addFiles(filePaths);
 }
 
-void MainWindow::onPreview()
+void MainWindow::preview()
 {
     QMap<QDate, int> date2Count;   // date -> total # of files on that date
     for(int row = 0; row < _model.rowCount(); ++row)
@@ -118,7 +117,15 @@ void MainWindow::onPreview()
 void MainWindow::onRun()
 {
     if (_model.data(_model.index(0, COL_TO)).isNull())
-        onPreview();
+    {
+        DlgSettings dlg(this);
+        if (dlg.exec() == QDialog::Accepted)
+        {
+            preview();
+            if (dlg.getActionCode() == DlgSettings::PREVIEW)
+                return;
+        }
+    }
 
     _progressBar->show();
     _progressBar->setMaximum(_model.rowCount());
@@ -151,13 +158,12 @@ void MainWindow::onSettings()
 void MainWindow::onAbout() {
     QMessageBox::about(this, tr("About"),
                        tr("<h3><b>Rename by Date</b></h3>"
-                          "<p>Built on 01/27/2016</p>"
+                          "<p>Built on 03/16/2017</p>"
                           "<p><a href=mailto:CongChenUTD@Gmail.com>CongChenUTD@Gmail.com</a></p>"));
 }
 
 void MainWindow::updateActions()
 {
-    ui->actionPreview->setEnabled(_model.rowCount() > 0);
     ui->actionEmpty  ->setEnabled(_model.rowCount() > 0);
     ui->actionRun    ->setEnabled(_model.rowCount() > 0);
 }

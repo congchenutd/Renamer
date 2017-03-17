@@ -13,12 +13,18 @@ public:
     explicit DlgSettings(QWidget *parent = 0);
     void accept();
 
+    typedef enum {PREVIEW, RENAME} ActionCode;
+    ActionCode getActionCode() const;
+
 private slots:
     void onFont();
+    void onPreview();
+    void onRename();
 
 private:
     Ui::DlgSettings ui;
-    QSettings _settings;
+    QSettings   _settings;
+    ActionCode  _actionCode;
 };
 
 #endif // DLGSETTINGS_H

@@ -6,10 +6,11 @@
 
 QString Renamer::run(QSettings* settings, const QFileInfo& fileInfo, int index, int length)
 {
-    QString result = settings->value("GeneralPattern").toString();
-    QString datePattern  = settings->value("DatePattern") .toString();
-    QString eventPattern = settings->value("EventPattern").toString();
-    QString indexPattern = settings->value("IndexPattern").toString();
+    QString result          = settings->value("GeneralPattern") .toString();
+    QString datePattern     = settings->value("DatePattern")    .toString();
+    QString people          = settings->value("People")         .toString();
+    QString eventPattern    = settings->value("Event")          .toString();
+    QString indexPattern    = settings->value("IndexPattern")   .toString();
 
     QString destPath = fileInfo.path();
     QString suffix = fileInfo.suffix().isEmpty() ? QString()
@@ -17,6 +18,7 @@ QString Renamer::run(QSettings* settings, const QFileInfo& fileInfo, int index, 
 
     QString date = fileInfo.lastModified().toString(datePattern);
     result.replace("$Date$", date);
+    result.replace("$People$", people);
     result.replace("$Event$", eventPattern);
 
     result.replace("$Index$", indexPattern);
