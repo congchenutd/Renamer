@@ -11,7 +11,7 @@ DlgSettings::DlgSettings(QWidget* parent) :
     connect(ui.btPreview,   SIGNAL(clicked()), this, SLOT(onPreview()));
     connect(ui.btRename,    SIGNAL(clicked()), this, SLOT(onRename()));
 
-    ui.leGeneralPattern ->setText(_settings.value("GeneralPattern") .toString());
+    ui.leGeneralPattern ->setText(_settings.value("Separator")      .toString());
     ui.leDatePattern    ->setText(_settings.value("DatePattern")    .toString());
     ui.leEvent          ->setText(_settings.value("Event")          .toString());
     ui.lePeople         ->setText(_settings.value("People")         .toString());
@@ -20,7 +20,7 @@ DlgSettings::DlgSettings(QWidget* parent) :
 
 void DlgSettings::accept()
 {
-    _settings.setValue("GeneralPattern",    ui.leGeneralPattern ->text());
+    _settings.setValue("Separator",         ui.leGeneralPattern ->text());
     _settings.setValue("DatePattern",       ui.leDatePattern    ->text());
     _settings.setValue("People",            ui.lePeople         ->text());
     _settings.setValue("Event",             ui.leEvent          ->text());

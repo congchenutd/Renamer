@@ -133,7 +133,7 @@ void MainWindow::onRun()
     {
         QString from = _model.data(_model.index(row, COL_FROM)).toString();
         QString to   = _model.data(_model.index(row, COL_TO))  .toString();
-        if(_model.data(_model.index(row, COL_TO)) .toString().isEmpty())
+        if(to.isEmpty())
             continue;
         QFile::rename(from, to);
         _progressBar->setValue(row);
