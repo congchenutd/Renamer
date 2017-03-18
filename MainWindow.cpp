@@ -92,25 +92,14 @@ void MainWindow::onAdd()
 
 void MainWindow::preview()
 {
-    QMap<QDate, int> date2Count;   // date -> total # of files on that date
+    QFileInfoList fileInfos;
     for(int row = 0; row < _model.rowCount(); ++row)
-    {
-        QFileInfo fileInfo(_model.data(_model.index(row, COL_FROM)).toString());
-        QDate date = fileInfo.lastModified().date();
-        date2Count[date] ++;
-    }
+        fileInfos << QFileInfo(_model.data(_model.index(row, COL_FROM)).toString());
 
-    QMap<QDate, int> date2Index;   // date -> current number of files on that date
+    QStringList newFilePaths = Renamer().run(&_settings, fileInfos);
+
     for(int row = 0; row < _model.rowCount(); ++row)
-    {
-        QFileInfo fileInfo(_model.data(_model.index(row, COL_FROM)).toString());
-        QDate date = fileInfo.lastModified().date();
-        date2Index[date] ++;
-
-        Renamer renamer;
-        QString newName = renamer.run(&_settings, fileInfo, date2Index[date], log10(date2Count[date]) + 1);
-        _model.setData(_model.index(row, COL_TO), newName);
-    }
+        _model.setData(_model.index(row, COL_TO), newFilePaths.at(row));
     ui->tableView->resizeColumnsToContents();
 }
 
