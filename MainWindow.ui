@@ -14,7 +14,7 @@
    <enum>Qt::NoContextMenu</enum>
   </property>
   <property name="windowTitle">
-   <string>Rename by Date</string>
+   <string>Renamer</string>
   </property>
   <property name="windowIcon">
    <iconset resource="Resources.qrc">

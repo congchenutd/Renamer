@@ -4,7 +4,7 @@
 #
 #-------------------------------------------------
 
-QT       += core gui
+QT       += core gui multimedia
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
@@ -22,14 +22,18 @@ SOURCES +=\
         MainWindow.cpp \
     Main.cpp \
     Renamer.cpp \
-    DlgSettings.cpp
+    DlgSettings.cpp \
+    Exif.cpp
 
 HEADERS  += MainWindow.h \
     Renamer.h \
-    DlgSettings.h
+    DlgSettings.h \
+    Exif.h
 
 FORMS    += MainWindow.ui \
     DlgSettings.ui
 
 RESOURCES += \
     Resources.qrc
+
+DISTFILES +=

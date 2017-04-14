@@ -2,13 +2,14 @@
 #include "ui_MainWindow.h"
 #include "Renamer.h"
 #include "DlgSettings.h"
+#include "Exif.h"
 #include <QFileDialog>
 #include <QDateTime>
 #include <QMessageBox>
 #include <QProgressBar>
 #include <QDragEnterEvent>
 #include <QMimeData>
-#include <cmath>
+#include <QProcess>
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
@@ -39,11 +40,11 @@ MainWindow::MainWindow(QWidget *parent) :
     ui->tableView->setModel(&_model);
     ui->tableView->sortByColumn(COL_DATE, Qt::AscendingOrder);
 
-    connect(ui->actionAdd,      SIGNAL(triggered()), this, SLOT(onAdd()));
-    connect(ui->actionRun,      SIGNAL(triggered()), this, SLOT(onRun()));
-    connect(ui->actionEmpty,    SIGNAL(triggered()), this, SLOT(onClean()));
-    connect(ui->actionSettings, SIGNAL(triggered()), this, SLOT(onSettings()));
-    connect(ui->actionAbout,    SIGNAL(triggered()), this, SLOT(onAbout()));
+    connect(ui->actionAdd,      SIGNAL(triggered()), SLOT(onAdd()));
+    connect(ui->actionRun,      SIGNAL(triggered()), SLOT(onRun()));
+    connect(ui->actionEmpty,    SIGNAL(triggered()), SLOT(onClean()));
+    connect(ui->actionSettings, SIGNAL(triggered()), SLOT(onSettings()));
+    connect(ui->actionAbout,    SIGNAL(triggered()), SLOT(onAbout()));
 }
 
 MainWindow::~MainWindow() {
@@ -67,18 +68,42 @@ void MainWindow::dropEvent(QDropEvent* e)
 
 void MainWindow::addFiles(const QStringList& filePaths)
 {
+    _progressBar->show();
+    _progressBar->setMaximum(_model.rowCount());
+
+    const QString dateTimeFormat = "yyyy-MM-dd HH:mm:ss";
     foreach(const QString& filePath, filePaths)
     {
         QFileInfo fileInfo(filePath);
-        int lastRow = _model.rowCount();
-        _model.insertRow(lastRow);
-        _model.setData(_model.index(lastRow, COL_FROM),
-                       QDir::toNativeSeparators(fileInfo.filePath()));
-        _model.setData(_model.index(lastRow, COL_DATE),
-                       fileInfo.lastModified().toString("yyyy-MM-dd HH:mm:ss"));
+        int row = _model.rowCount();
+        _model.insertRow(row);
+        _model.setData(_model.index(row, COL_FROM), QDir::toNativeSeparators(fileInfo.filePath()));
+
+        // Load modified date and time
+        QDateTime lastModifiedDateTime = QFileInfo(filePath).lastModified();
+        _model.setData(_model.index(row, COL_DATE), lastModifiedDateTime.toString(dateTimeFormat));
+
+        // Verify date and time using exif
+        Exif exif(filePath);
+        QString exifDateString = exif.getValue("create", true); // fuzzy search "create" in exif
+        if (!exifDateString.isEmpty())
+        {
+            // Correct date and mark it in red
+            QDateTime exifDateTime = QDateTime::fromString(exifDateString, "yyyy:MM:dd hh:mm:ss");
+            if (qAbs(exifDateTime.secsTo(lastModifiedDateTime)) > 60)   // allow 1 minute error
+            {
+                _model.setData(_model.index(row, COL_DATE), exifDateTime.toString(dateTimeFormat)); // use exif date
+                _model.setData(_model.index(row, COL_DATE), QColor(Qt::red), Qt::TextColorRole);    // mark text in red
+            }
+        }
+
+        _progressBar->setValue(row + 1);
+        ui->tableView->resizeColumnsToContents();
+        qApp->processEvents();
     }
+
+    _progressBar->hide();
     ui->tableView->sortByColumn(COL_DATE, Qt::AscendingOrder);
-    ui->tableView->resizeColumnsToContents();
     updateActions();
 }
 
@@ -90,45 +115,68 @@ void MainWindow::onAdd()
         addFiles(filePaths);
 }
 
+/**
+ * Pre-run the renaming
+ * Put result under COL_TO without actually running it
+ */
 void MainWindow::preview()
 {
+    // collect input
     QFileInfoList fileInfos;
+    QList<QDateTime> dateTimes;
     for(int row = 0; row < _model.rowCount(); ++row)
+    {
         fileInfos << QFileInfo(_model.data(_model.index(row, COL_FROM)).toString());
+        dateTimes << _model.data(_model.index(row, COL_DATE)).toDateTime();
+    }
 
-    QStringList newFilePaths = Renamer().run(&_settings, fileInfos);
+    // get results
+    QStringList newFilePaths = Renamer().run(&_settings, fileInfos, dateTimes);
 
+    // write results to COL_TO
     for(int row = 0; row < _model.rowCount(); ++row)
         _model.setData(_model.index(row, COL_TO), newFilePaths.at(row));
+
     ui->tableView->resizeColumnsToContents();
 }
 
+/**
+ * Run renaming
+ */
 void MainWindow::onRun()
 {
+    // Run preview if no previewed results
     if (_model.data(_model.index(0, COL_TO)).isNull())
     {
         DlgSettings dlg(this);
         if (dlg.exec() == QDialog::Accepted)
         {
             preview();
-            if (dlg.getActionCode() == DlgSettings::PREVIEW)
+            if (dlg.getActionCode() == DlgSettings::PREVIEW)    // user selected preview
                 return;
         }
     }
 
-    _progressBar->show();
-    _progressBar->setMaximum(_model.rowCount());
+    // Acturally run renaming based on previewed results
     for(int row = 0; row < _model.rowCount(); ++row)
     {
         QString from = _model.data(_model.index(row, COL_FROM)).toString();
         QString to   = _model.data(_model.index(row, COL_TO))  .toString();
         if(to.isEmpty())
             continue;
+
+        // Fix date
+        QColor dateColor = _model.data(_model.index(row, COL_DATE), Qt::TextColorRole).value<QColor>();
+        if (dateColor == QColor(Qt::red))   // marked in red
+        {
+            // change modified date
+            QDateTime dateTime = _model.data(_model.index(row, COL_DATE)).toDateTime();
+            QProcess::execute("touch", QStringList() << "-t" << dateTime.toString("yyyyMMddhhmm") << from);
+        }
+
         QFile::rename(from, to);
-        _progressBar->setValue(row);
-        qApp->processEvents();
     }
-    _progressBar->hide();
+
     onClean();
 }
 
@@ -146,8 +194,8 @@ void MainWindow::onSettings()
 
 void MainWindow::onAbout() {
     QMessageBox::about(this, tr("About"),
-                       tr("<h3><b>Rename by Date</b></h3>"
-                          "<p>Built on 03/16/2017</p>"
+                       tr("<h3><b>Renamer</b></h3>"
+                          "<p>Built on 04/13/2017</p>"
                           "<p><a href=mailto:CongChenUTD@Gmail.com>CongChenUTD@Gmail.com</a></p>"));
 }
 

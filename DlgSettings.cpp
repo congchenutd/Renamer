@@ -16,6 +16,7 @@ DlgSettings::DlgSettings(QWidget* parent) :
     ui.leEvent          ->setText(_settings.value("Event")          .toString());
     ui.lePeople         ->setText(_settings.value("People")         .toString());
     ui.leIndexPattern   ->setText(_settings.value("IndexPattern")   .toString());
+    ui.leExiftoolPath   ->setText(_settings.value("ExiftoolPath")   .toString());
 }
 
 void DlgSettings::accept()
@@ -25,6 +26,7 @@ void DlgSettings::accept()
     _settings.setValue("People",            ui.lePeople         ->text());
     _settings.setValue("Event",             ui.leEvent          ->text());
     _settings.setValue("IndexPattern",      ui.leIndexPattern   ->text());
+    _settings.setValue("ExiftoolPath",      ui.leExiftoolPath   ->text());
     _settings.setValue("Font",              ui.btFont->font().toString());
     qApp->setFont(ui.btFont->font());
     QDialog::accept();

@@ -1,3 +1,4 @@
+#include "Exif.h"
 #include "Renamer.h"
 #include <QSettings>
 #include <QFileInfo>
@@ -6,30 +7,27 @@
 #include <QRegularExpression>
 #include <cmath>
 
-
 /**
  * @brief Rename a list of files based on a given template
  * @param settings  - the renaming template
  * @param fileInfos - the list of files
  * @return          - a list of new names
  */
-QStringList Renamer::run(QSettings* settings, const QFileInfoList& fileInfos)
+QStringList Renamer::run(QSettings* settings, const QFileInfoList& fileInfos, const QList<QDateTime>& dateTimes)
 {
     QMap<QDate, int> date2Count;   // date -> total # of files on that date
-    foreach (const QFileInfo& fileInfo, fileInfos)
-    {
-        QDate date = fileInfo.lastModified().date();
-        date2Count[date] ++;
-    }
+    foreach (const QDateTime& dateTime, dateTimes)
+        date2Count[dateTime.date()] ++;
 
     QStringList result;
-    QMap<QDate, int> date2Index;   // date -> index (starting from 1) of the file being processed on that date
-    foreach (const QFileInfo& fileInfo, fileInfos)
+    QMap<QDate, int> date2Index;   // date -> index (starting from 1) of the file in the list of that date
+    for (int i = 0; i < fileInfos.length(); ++i)
     {
-        QDate date = fileInfo.lastModified().date();
+        QFileInfo fileInfo = fileInfos.at(i);
+        QDate date = dateTimes.at(i).date();
         date2Index[date] ++;
 
-        QString newName = run(settings, fileInfo, result, date2Count[date],
+        QString newName = run(settings, fileInfo, dateTimes.at(i), result, date2Count[date],
                               date2Index[date], static_cast<int>(log10(date2Count[date])) + 1);
         result << newName;
     }
@@ -46,7 +44,7 @@ QStringList Renamer::run(QSettings* settings, const QFileInfoList& fileInfos)
  * @param length    - length of the index (ie, how many digits)
  * @return          - a valid new name
  */
-QString Renamer::run(QSettings* settings, const QFileInfo& fileInfo,
+QString Renamer::run(QSettings* settings, const QFileInfo& fileInfo, const QDateTime& dateTime,
                      const QStringList& newFilePaths, int groupSize, int index, int length)
 {
     // Load the template
@@ -59,7 +57,7 @@ QString Renamer::run(QSettings* settings, const QFileInfo& fileInfo,
 
     QStringList sections;
     if (!datePattern.isEmpty())
-        sections << fileInfo.lastModified().toString(datePattern);
+        sections << dateTime.toString(datePattern);
     if (!people.isEmpty())
         sections << people;
     if (!event.isEmpty())
@@ -115,4 +113,3 @@ QString Renamer::getValidFilePath(const QString& filePath, const QStringList& ne
     newFilePath.replace(re, QString("(%1)").arg(number));
     return getValidFilePath(newFilePath, newFilePaths); // check the name again
 }
-
