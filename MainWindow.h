@@ -10,6 +10,7 @@ class MainWindow;
 }
 
 class QProgressBar;
+class QItemSelection;
 
 class MainWindow : public QMainWindow
 {
@@ -27,13 +28,17 @@ private slots:
     void onAdd();
     void onRun();
     void onClean();
+    void onUseModified();
+    void onUseExif();
     void onSettings();
     void onAbout();
+    void onSelectionChanged(const QItemSelection& selection);
 
 private:
     void addFiles(const QStringList& filePaths);
     void preview();
     void updateActions();
+    QModelIndexList getSelected() const;
 
 private:
     Ui::MainWindow* ui;
@@ -41,7 +46,7 @@ private:
     QProgressBar*       _progressBar;
     QSettings           _settings;
 
-    enum {COL_FROM, COL_TO, COL_DATE};
+    enum {COL_FROM, COL_TO, COL_DATE, COL_MODIFIED_DATE, COL_EXIF_DATE};
 };
 
 #endif // MAINWINDOW_H

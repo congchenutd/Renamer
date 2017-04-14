@@ -32,19 +32,28 @@ MainWindow::MainWindow(QWidget *parent) :
 
     updateActions();
 
-    _model.setColumnCount(3);
-    _model.setHeaderData(COL_FROM, Qt::Horizontal, tr("From"));
-    _model.setHeaderData(COL_TO,   Qt::Horizontal, tr("To"));
-    _model.setHeaderData(COL_DATE, Qt::Horizontal, tr("Date"));
+    _model.setColumnCount(5);
+    _model.setHeaderData(COL_FROM,      Qt::Horizontal, tr("From"));
+    _model.setHeaderData(COL_TO,        Qt::Horizontal, tr("To"));
+    _model.setHeaderData(COL_DATE,      Qt::Horizontal, tr("Date"));
+    _model.setHeaderData(COL_MODIFIED_DATE,  Qt::Horizontal, tr("Modified date"));
+    _model.setHeaderData(COL_EXIF_DATE, Qt::Horizontal, tr("Exif date"));
 
     ui->tableView->setModel(&_model);
     ui->tableView->sortByColumn(COL_DATE, Qt::AscendingOrder);
 
-    connect(ui->actionAdd,      SIGNAL(triggered()), SLOT(onAdd()));
-    connect(ui->actionRun,      SIGNAL(triggered()), SLOT(onRun()));
-    connect(ui->actionEmpty,    SIGNAL(triggered()), SLOT(onClean()));
-    connect(ui->actionSettings, SIGNAL(triggered()), SLOT(onSettings()));
-    connect(ui->actionAbout,    SIGNAL(triggered()), SLOT(onAbout()));
+    ui->actionUseModified   ->setEnabled(false);
+    ui->actionUseExif       ->setEnabled(false);
+
+    connect(ui->actionAdd,          SIGNAL(triggered()), SLOT(onAdd()));
+    connect(ui->actionRun,          SIGNAL(triggered()), SLOT(onRun()));
+    connect(ui->actionEmpty,        SIGNAL(triggered()), SLOT(onClean()));
+    connect(ui->actionUseModified,  SIGNAL(triggered()), SLOT(onUseModified()));
+    connect(ui->actionUseExif,      SIGNAL(triggered()), SLOT(onUseExif()));
+    connect(ui->actionSettings,     SIGNAL(triggered()), SLOT(onSettings()));
+    connect(ui->actionAbout,        SIGNAL(triggered()), SLOT(onAbout()));
+    connect(ui->tableView->selectionModel(), SIGNAL(selectionChanged(QItemSelection, QItemSelection)),
+            SLOT(onSelectionChanged(QItemSelection)));
 }
 
 MainWindow::~MainWindow() {
@@ -81,7 +90,8 @@ void MainWindow::addFiles(const QStringList& filePaths)
 
         // Load modified date and time
         QDateTime lastModifiedDateTime = QFileInfo(filePath).lastModified();
-        _model.setData(_model.index(row, COL_DATE), lastModifiedDateTime.toString(dateTimeFormat));
+        _model.setData(_model.index(row, COL_MODIFIED_DATE), lastModifiedDateTime.toString(dateTimeFormat));
+        _model.setData(_model.index(row, COL_DATE),          lastModifiedDateTime.toString(dateTimeFormat));
 
         // Verify date and time using exif
         Exif exif(filePath);
@@ -90,6 +100,8 @@ void MainWindow::addFiles(const QStringList& filePaths)
         {
             // Correct date and mark it in red
             QDateTime exifDateTime = QDateTime::fromString(exifDateString, "yyyy:MM:dd hh:mm:ss");
+            _model.setData(_model.index(row, COL_EXIF_DATE), exifDateTime.toString(dateTimeFormat));
+
             if (qAbs(exifDateTime.secsTo(lastModifiedDateTime)) > 60)   // allow 1 minute error
             {
                 _model.setData(_model.index(row, COL_DATE), exifDateTime.toString(dateTimeFormat)); // use exif date
@@ -113,6 +125,28 @@ void MainWindow::onAdd()
                                                           "All files (*.*)");
     if(!filePaths.isEmpty())
         addFiles(filePaths);
+}
+
+void MainWindow::onUseModified()
+{
+    foreach (const QModelIndex& idx, getSelected())
+    {
+        int row = idx.row();
+        QString date = _model.data(_model.index(row, COL_MODIFIED_DATE)).toString();
+        if (!date.isEmpty())
+            _model.setData(_model.index(row, COL_DATE), date);
+    }
+}
+
+void MainWindow::onUseExif()
+{
+    foreach (const QModelIndex& idx, getSelected())
+    {
+        int row = idx.row();
+        QString date = _model.data(_model.index(row, COL_EXIF_DATE)).toString();
+        if (!date.isEmpty())
+            _model.setData(_model.index(row, COL_DATE), date);
+    }
 }
 
 /**
@@ -197,6 +231,16 @@ void MainWindow::onAbout() {
                        tr("<h3><b>Renamer</b></h3>"
                           "<p>Built on 04/13/2017</p>"
                           "<p><a href=mailto:CongChenUTD@Gmail.com>CongChenUTD@Gmail.com</a></p>"));
+}
+
+void MainWindow::onSelectionChanged(const QItemSelection& selection)
+{
+    ui->actionUseModified   ->setEnabled(!selection.isEmpty());
+    ui->actionUseExif       ->setEnabled(!selection.isEmpty());
+}
+
+QModelIndexList MainWindow::getSelected() const {
+    return ui->tableView->selectionModel()->selectedIndexes();
 }
 
 void MainWindow::updateActions()

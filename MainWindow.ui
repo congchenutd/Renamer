@@ -72,6 +72,9 @@
    <addaction name="actionAdd"/>
    <addaction name="actionRun"/>
    <addaction name="actionEmpty"/>
+   <addaction name="actionUseModified"/>
+   <addaction name="actionUseExif"/>
+   <addaction name="separator"/>
    <addaction name="actionSettings"/>
    <addaction name="actionAbout"/>
   </widget>
@@ -88,7 +91,7 @@
   <action name="actionRun">
    <property name="icon">
     <iconset resource="Resources.qrc">
-     <normaloff>:/Images/Go.png</normaloff>:/Images/Go.png</iconset>
+     <normaloff>:/Images/Renamer.png</normaloff>:/Images/Renamer.png</iconset>
    </property>
    <property name="text">
     <string>Run</string>
@@ -122,6 +125,24 @@
    </property>
    <property name="toolTip">
     <string>Empty</string>
+   </property>
+  </action>
+  <action name="actionUseExif">
+   <property name="icon">
+    <iconset resource="Resources.qrc">
+     <normaloff>:/Images/Camera.png</normaloff>:/Images/Camera.png</iconset>
+   </property>
+   <property name="text">
+    <string>Use Exif</string>
+   </property>
+  </action>
+  <action name="actionUseModified">
+   <property name="icon">
+    <iconset resource="Resources.qrc">
+     <normaloff>:/Images/FileEdit.png</normaloff>:/Images/FileEdit.png</iconset>
+   </property>
+   <property name="text">
+    <string>Use Modified</string>
    </property>
   </action>
  </widget>
