@@ -46,10 +46,12 @@ MainWindow::MainWindow(QWidget *parent) :
     ui->actionUseExif       ->setEnabled(false);
 
     connect(ui->actionAdd,          SIGNAL(triggered()), SLOT(onAdd()));
-    connect(ui->actionRun,          SIGNAL(triggered()), SLOT(onRun()));
+    connect(ui->actionDel,          SIGNAL(triggered()), SLOT(onDel()));
     connect(ui->actionEmpty,        SIGNAL(triggered()), SLOT(onClean()));
     connect(ui->actionUseModified,  SIGNAL(triggered()), SLOT(onUseModified()));
     connect(ui->actionUseExif,      SIGNAL(triggered()), SLOT(onUseExif()));
+    connect(ui->actionRename,       SIGNAL(triggered()), SLOT(onRename()));
+    connect(ui->actionFixDate,      SIGNAL(triggered()), SLOT(onFixDate()));
     connect(ui->actionSettings,     SIGNAL(triggered()), SLOT(onSettings()));
     connect(ui->actionAbout,        SIGNAL(triggered()), SLOT(onAbout()));
     connect(ui->tableView->selectionModel(), SIGNAL(selectionChanged(QItemSelection, QItemSelection)),
@@ -78,7 +80,8 @@ void MainWindow::dropEvent(QDropEvent* e)
 void MainWindow::addFiles(const QStringList& filePaths)
 {
     _progressBar->show();
-    _progressBar->setMaximum(_model.rowCount());
+    _progressBar->setMinimum(0);
+    _progressBar->setMaximum(filePaths.length());
 
     const QString dateTimeFormat = "yyyy-MM-dd HH:mm:ss";
     foreach(const QString& filePath, filePaths)
@@ -127,6 +130,17 @@ void MainWindow::onAdd()
         addFiles(filePaths);
 }
 
+void MainWindow::onDel()
+{
+    QList<int> rows;
+    foreach (const QModelIndex& idx, getSelected())
+        rows.append(idx.row());
+
+    qSort(rows.begin(), rows.end(), qGreater<int>());
+    foreach (int row, rows)
+        _model.removeRow(row);
+}
+
 void MainWindow::onUseModified()
 {
     foreach (const QModelIndex& idx, getSelected())
@@ -156,6 +170,8 @@ void MainWindow::onUseExif()
 void MainWindow::preview()
 {
     // collect input
+    ui->tableView->sortByColumn(COL_DATE, Qt::AscendingOrder);
+
     QFileInfoList fileInfos;
     QList<QDateTime> dateTimes;
     for(int row = 0; row < _model.rowCount(); ++row)
@@ -177,7 +193,7 @@ void MainWindow::preview()
 /**
  * Run renaming
  */
-void MainWindow::onRun()
+void MainWindow::onRename()
 {
     // Run preview if no previewed results
     if (_model.data(_model.index(0, COL_TO)).isNull())
@@ -229,7 +245,7 @@ void MainWindow::onSettings()
 void MainWindow::onAbout() {
     QMessageBox::about(this, tr("About"),
                        tr("<h3><b>Renamer</b></h3>"
-                          "<p>Built on 04/13/2017</p>"
+                          "<p>Built on 04/16/2017</p>"
                           "<p><a href=mailto:CongChenUTD@Gmail.com>CongChenUTD@Gmail.com</a></p>"));
 }
 
@@ -239,12 +255,24 @@ void MainWindow::onSelectionChanged(const QItemSelection& selection)
     ui->actionUseExif       ->setEnabled(!selection.isEmpty());
 }
 
+void MainWindow::onFixDate()
+{
+    for(int row = 0; row < _model.rowCount(); ++row)
+    {
+        QString from = _model.data(_model.index(row, COL_FROM)).toString();
+        QDateTime dateTime = _model.data(_model.index(row, COL_DATE)).toDateTime();
+        QProcess::execute("touch", QStringList() << "-t" << dateTime.toString("yyyyMMddhhmm") << from);
+    }
+    onClean();
+}
+
 QModelIndexList MainWindow::getSelected() const {
     return ui->tableView->selectionModel()->selectedIndexes();
 }
 
 void MainWindow::updateActions()
 {
-    ui->actionEmpty  ->setEnabled(_model.rowCount() > 0);
-    ui->actionRun    ->setEnabled(_model.rowCount() > 0);
+    ui->actionEmpty     ->setEnabled(_model.rowCount() > 0);
+    ui->actionRename    ->setEnabled(_model.rowCount() > 0);
+    ui->actionFixDate   ->setEnabled(_model.rowCount() > 0);
 }

@@ -7,5 +7,7 @@
         <file>Images/Empty.png</file>
         <file>Images/Camera.png</file>
         <file>Images/FileEdit.png</file>
+        <file>Images/DateEdit.png</file>
+        <file>Images/Delete.png</file>
     </qresource>
 </RCC>

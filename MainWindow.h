@@ -26,13 +26,15 @@ protected:
 
 private slots:
     void onAdd();
-    void onRun();
+    void onDel();
+    void onRename();
     void onClean();
     void onUseModified();
     void onUseExif();
     void onSettings();
     void onAbout();
     void onSelectionChanged(const QItemSelection& selection);
+    void onFixDate();
 
 private:
     void addFiles(const QStringList& filePaths);

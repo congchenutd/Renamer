@@ -70,10 +70,12 @@
     <bool>false</bool>
    </attribute>
    <addaction name="actionAdd"/>
-   <addaction name="actionRun"/>
+   <addaction name="actionDel"/>
    <addaction name="actionEmpty"/>
    <addaction name="actionUseModified"/>
    <addaction name="actionUseExif"/>
+   <addaction name="actionRename"/>
+   <addaction name="actionFixDate"/>
    <addaction name="separator"/>
    <addaction name="actionSettings"/>
    <addaction name="actionAbout"/>
@@ -88,13 +90,16 @@
     <string>Add</string>
    </property>
   </action>
-  <action name="actionRun">
+  <action name="actionRename">
    <property name="icon">
     <iconset resource="Resources.qrc">
      <normaloff>:/Images/Renamer.png</normaloff>:/Images/Renamer.png</iconset>
    </property>
    <property name="text">
-    <string>Run</string>
+    <string>Rename</string>
+   </property>
+   <property name="toolTip">
+    <string>Rename</string>
    </property>
   </action>
   <action name="actionSettings">
@@ -143,6 +148,24 @@
    </property>
    <property name="text">
     <string>Use Modified</string>
+   </property>
+  </action>
+  <action name="actionFixDate">
+   <property name="icon">
+    <iconset resource="Resources.qrc">
+     <normaloff>:/Images/DateEdit.png</normaloff>:/Images/DateEdit.png</iconset>
+   </property>
+   <property name="text">
+    <string>Fix Date</string>
+   </property>
+  </action>
+  <action name="actionDel">
+   <property name="icon">
+    <iconset resource="Resources.qrc">
+     <normaloff>:/Images/Delete.png</normaloff>:/Images/Delete.png</iconset>
+   </property>
+   <property name="text">
+    <string>Delete</string>
    </property>
   </action>
  </widget>
