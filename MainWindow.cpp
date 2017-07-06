@@ -205,6 +205,8 @@ void MainWindow::onRename()
             if (dlg.getActionCode() == DlgSettings::PREVIEW)    // user selected preview
                 return;
         }
+        else
+            return;
     }
 
     // Acturally run renaming based on previewed results
@@ -245,7 +247,7 @@ void MainWindow::onSettings()
 void MainWindow::onAbout() {
     QMessageBox::about(this, tr("About"),
                        tr("<h3><b>Renamer</b></h3>"
-                          "<p>Built on 04/16/2017</p>"
+                          "<p>Built on 07/06/2017</p>"
                           "<p><a href=mailto:CongChenUTD@Gmail.com>CongChenUTD@Gmail.com</a></p>"));
 }
 
@@ -255,6 +257,9 @@ void MainWindow::onSelectionChanged(const QItemSelection& selection)
     ui->actionUseExif       ->setEnabled(!selection.isEmpty());
 }
 
+/**
+ * EXIF date -> modified date
+ */
 void MainWindow::onFixDate()
 {
     for(int row = 0; row < _model.rowCount(); ++row)
@@ -263,7 +268,6 @@ void MainWindow::onFixDate()
         QDateTime dateTime = _model.data(_model.index(row, COL_DATE)).toDateTime();
         QProcess::execute("touch", QStringList() << "-t" << dateTime.toString("yyyyMMddhhmm") << from);
     }
-    onClean();
 }
 
 QModelIndexList MainWindow::getSelected() const {
