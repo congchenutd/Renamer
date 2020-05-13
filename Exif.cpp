@@ -5,11 +5,10 @@
 #include <QJsonObject>
 #include <QProcess>
 #include <QSettings>
-#include <QDebug>
 
-Exif::Exif(const QString& filePath)
+Exif::Exif(const QString& filePath) : _filePath(filePath)
 {
-    if (filePath.isEmpty())
+    if (_filePath.isEmpty())
         return;
 
     QSettings settings("Settings.ini", QSettings::IniFormat);
@@ -18,7 +17,7 @@ Exif::Exif(const QString& filePath)
         return;
 
     QProcess* process = new QProcess;
-    process->start(exiftoolPath, QStringList() << filePath);
+    process->start(exiftoolPath, QStringList() << _filePath);
     process->waitForFinished();
 
     QStringList list = QString(process->readAllStandardOutput()).split("\n");
@@ -54,4 +53,9 @@ QString Exif::getValue(const QString& property, bool fuzzy) const
 
 void Exif::setValue(const QString& property, const QString& value) {
     _data[property] = value;
+}
+
+QString Exif::getFilePath() const
+{
+    return _filePath;
 }

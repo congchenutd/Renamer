@@ -1,9 +1,11 @@
-#ifndef MAINWINDOW_H
-#define MAINWINDOW_H
+#pragma once
 
 #include <QMainWindow>
+#include <QSet>
 #include <QSettings>
 #include <QStandardItemModel>
+#include <QFutureWatcher>
+#include "Exif.h"
 
 namespace Ui {
 class MainWindow;
@@ -48,7 +50,9 @@ private:
     QProgressBar*       _progressBar;
     QSettings           _settings;
 
-    enum {COL_FROM, COL_TO, COL_DATE, COL_MODIFIED_DATE, COL_EXIF_DATE};
-};
+    QSet<QString>       _filePaths;
 
-#endif // MAINWINDOW_H
+    enum {COL_FROM, COL_TO, COL_DATE, COL_MODIFIED_DATE, COL_EXIF_DATE};
+
+    QFutureWatcher<Exif> _watcher;
+};

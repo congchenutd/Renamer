@@ -2,7 +2,6 @@
 #include "ui_MainWindow.h"
 #include "Renamer.h"
 #include "DlgSettings.h"
-#include "Exif.h"
 #include <QFileDialog>
 #include <QDateTime>
 #include <QMessageBox>
@@ -10,6 +9,7 @@
 #include <QDragEnterEvent>
 #include <QMimeData>
 #include <QProcess>
+#include <QtConcurrent>
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
@@ -77,49 +77,69 @@ void MainWindow::dropEvent(QDropEvent* e)
     addFiles(filePaths);
 }
 
+Exif exifRunner(const QString& filePath)
+{
+    return Exif(filePath);
+};
+
 void MainWindow::addFiles(const QStringList& filePaths)
 {
     _progressBar->show();
-    _progressBar->setMinimum(0);
-    _progressBar->setMaximum(filePaths.length());
 
-    const QString dateTimeFormat = "yyyy-MM-dd HH:mm:ss";
-    foreach(const QString& filePath, filePaths)
+    QStringList newFiles;
+    for (const auto& filePath: filePaths)
     {
-        QFileInfo fileInfo(filePath);
-        int row = _model.rowCount();
-        _model.insertRow(row);
-        _model.setData(_model.index(row, COL_FROM), QDir::toNativeSeparators(fileInfo.filePath()));
-
-        // Load modified date and time
-        QDateTime lastModifiedDateTime = QFileInfo(filePath).lastModified();
-        _model.setData(_model.index(row, COL_MODIFIED_DATE), lastModifiedDateTime.toString(dateTimeFormat));
-        _model.setData(_model.index(row, COL_DATE),          lastModifiedDateTime.toString(dateTimeFormat));
-
-        // Verify date and time using exif
-        Exif exif(filePath);
-        QString exifDateString = exif.getValue("create", true); // fuzzy search "create" in exif
-        if (!exifDateString.isEmpty())
+        if (!_filePaths.contains(filePath))
         {
-            // Correct date and mark it in red
-            QDateTime exifDateTime = QDateTime::fromString(exifDateString, "yyyy:MM:dd hh:mm:ss");
-            _model.setData(_model.index(row, COL_EXIF_DATE), exifDateTime.toString(dateTimeFormat));
+            newFiles << filePath;
+            _filePaths << filePath;
+        }
+    }
 
-            if (qAbs(exifDateTime.secsTo(lastModifiedDateTime)) > 60)   // allow 1 minute error
+    auto future = QtConcurrent::mapped(newFiles, exifRunner);
+
+    connect(&_watcher, &QFutureWatcher<void>::progressRangeChanged, _progressBar, &QProgressBar::setRange);
+    connect(&_watcher, &QFutureWatcher<void>::progressValueChanged, _progressBar, &QProgressBar::setValue);
+    connect(&_watcher, &QFutureWatcher<void>::finished, [this]() {
+        const QString dateTimeFormat = "yyyy-MM-dd HH:mm:ss";
+
+        QFutureIterator<Exif> it(_watcher.future());
+        while (it.hasNext())
+        {
+            int row = _model.rowCount();
+            _model.insertRow(row);
+
+            auto exif = it.next();
+            const auto filePath = exif.getFilePath();
+            _model.setData(_model.index(row, COL_FROM), QDir::toNativeSeparators(filePath));
+
+            QDateTime lastModifiedDateTime = QFileInfo(filePath).lastModified();
+            const auto lastModifiedDateTimeString = lastModifiedDateTime.toString(dateTimeFormat);
+            _model.setData(_model.index(row, COL_MODIFIED_DATE), lastModifiedDateTimeString);
+            _model.setData(_model.index(row, COL_DATE),          lastModifiedDateTimeString);
+
+            QString exifDateString = exif.getValue("create", true); // fuzzy search "create" in exif
+            if (!exifDateString.isEmpty())
             {
-                _model.setData(_model.index(row, COL_DATE), exifDateTime.toString(dateTimeFormat)); // use exif date
-                _model.setData(_model.index(row, COL_DATE), QColor(Qt::red), Qt::TextColorRole);    // mark text in red
+                // Correct date and mark it in red
+                QDateTime exifDateTime = QDateTime::fromString(exifDateString, "yyyy:MM:dd hh:mm:ss");
+                _model.setData(_model.index(row, COL_EXIF_DATE), exifDateTime.toString(dateTimeFormat));
+
+                if (qAbs(exifDateTime.secsTo(lastModifiedDateTime)) > 60)   // allow 1 minute error
+                {
+                    _model.setData(_model.index(row, COL_DATE), exifDateTime.toString(dateTimeFormat)); // use exif date
+                    _model.setData(_model.index(row, COL_DATE), QColor(Qt::red), Qt::ForegroundRole);    // mark text in red
+                }
             }
         }
 
-        _progressBar->setValue(row + 1);
+        _progressBar->hide();
         ui->tableView->resizeColumnsToContents();
-        qApp->processEvents();
-    }
+        ui->tableView->sortByColumn(COL_DATE, Qt::AscendingOrder);
+        updateActions();
+    });
 
-    _progressBar->hide();
-    ui->tableView->sortByColumn(COL_DATE, Qt::AscendingOrder);
-    updateActions();
+    _watcher.setFuture(future);
 }
 
 void MainWindow::onAdd()
@@ -138,7 +158,10 @@ void MainWindow::onDel()
 
     qSort(rows.begin(), rows.end(), qGreater<int>());
     foreach (int row, rows)
+    {
+        _filePaths.remove(_model.data(_model.index(row, COL_FROM)).toString());
         _model.removeRow(row);
+    }
 }
 
 void MainWindow::onUseModified()
@@ -218,7 +241,7 @@ void MainWindow::onRename()
             continue;
 
         // Fix date
-        QColor dateColor = _model.data(_model.index(row, COL_DATE), Qt::TextColorRole).value<QColor>();
+        QColor dateColor = _model.data(_model.index(row, COL_DATE), Qt::ForegroundRole).value<QColor>();
         if (dateColor == QColor(Qt::red))   // marked in red
         {
             // change modified date
@@ -235,6 +258,7 @@ void MainWindow::onRename()
 void MainWindow::onClean()
 {
     _model.removeRows(0, _model.rowCount());
+    _filePaths.clear();
     updateActions();
 }
 
@@ -247,7 +271,7 @@ void MainWindow::onSettings()
 void MainWindow::onAbout() {
     QMessageBox::about(this, tr("About"),
                        tr("<h3><b>Renamer</b></h3>"
-                          "<p>Built on 07/06/2017</p>"
+                          "<p>Built on 12/27/2018</p>"
                           "<p><a href=mailto:CongChenUTD@Gmail.com>CongChenUTD@Gmail.com</a></p>"));
 }
 

@@ -1,5 +1,4 @@
-#ifndef DLGSETTINGS_H
-#define DLGSETTINGS_H
+#pragma once
 
 #include "ui_DlgSettings.h"
 
@@ -26,5 +25,3 @@ private:
     QSettings   _settings;
     ActionCode  _actionCode;
 };
-
-#endif // DLGSETTINGS_H

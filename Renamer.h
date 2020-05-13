@@ -1,5 +1,4 @@
-#ifndef RENAMER_H
-#define RENAMER_H
+#pragma once
 
 #include <QFileInfoList>
 #include <QString>
@@ -17,5 +16,3 @@ private:
                 const QStringList& newFilePaths, int groupSize, int index = 0, int length = 3);
     QString getValidFilePath(const QString& filePath, const QStringList& newPaths);
 };
-
-#endif // RENAMER_H
