@@ -98,9 +98,9 @@ void MainWindow::addFiles(const QStringList& filePaths)
 
     auto future = QtConcurrent::mapped(newFiles, exifRunner);
 
-    connect(&_watcher, &QFutureWatcher<void>::progressRangeChanged, _progressBar, &QProgressBar::setRange);
-    connect(&_watcher, &QFutureWatcher<void>::progressValueChanged, _progressBar, &QProgressBar::setValue);
-    connect(&_watcher, &QFutureWatcher<void>::finished, [this]() {
+    connect(&_watcher, &QFutureWatcher<Exif>::progressRangeChanged, _progressBar, &QProgressBar::setRange);
+    connect(&_watcher, &QFutureWatcher<Exif>::progressValueChanged, _progressBar, &QProgressBar::setValue);
+    connect(&_watcher, &QFutureWatcher<Exif>::finished, [this]() {
         const QString dateTimeFormat = "yyyy-MM-dd HH:mm:ss";
 
         QFutureIterator<Exif> it(_watcher.future());
@@ -118,18 +118,22 @@ void MainWindow::addFiles(const QStringList& filePaths)
             _model.setData(_model.index(row, COL_MODIFIED_DATE), lastModifiedDateTimeString);
             _model.setData(_model.index(row, COL_DATE),          lastModifiedDateTimeString);
 
-            QString exifDateString = exif.getValue("create", true); // fuzzy search "create" in exif
-            if (!exifDateString.isEmpty())
-            {
-                // Correct date and mark it in red
-                QDateTime exifDateTime = QDateTime::fromString(exifDateString, "yyyy:MM:dd hh:mm:ss");
-                _model.setData(_model.index(row, COL_EXIF_DATE), exifDateTime.toString(dateTimeFormat));
+            QString exifDateString = exif.getValue("Create", true); // fuzzy search "create" in exif
+            QRegularExpression regex(R"(\d+:\d+:\d+\s+\d+:\d+:\d+)");
+            QRegularExpressionMatch match = regex.match(exifDateString);
+            if (!match.hasMatch()) {
+                continue;
+            }
+            const auto exifDateStringCaptured = match.captured(0);
 
-                if (qAbs(exifDateTime.secsTo(lastModifiedDateTime)) > 60)   // allow 1 minute error
-                {
-                    _model.setData(_model.index(row, COL_DATE), exifDateTime.toString(dateTimeFormat)); // use exif date
-                    _model.setData(_model.index(row, COL_DATE), QColor(Qt::red), Qt::ForegroundRole);    // mark text in red
-                }
+            // Correct date and mark it in red
+            QDateTime exifDateTime = QDateTime::fromString(exifDateStringCaptured, "yyyy:MM:dd hh:mm:ss");
+            _model.setData(_model.index(row, COL_EXIF_DATE), exifDateStringCaptured);
+
+            if (qAbs(exifDateTime.secsTo(lastModifiedDateTime)) > 60)   // allow 1 minute error
+            {
+                _model.setData(_model.index(row, COL_DATE), exifDateTime.toString(dateTimeFormat)); // use exif date
+                _model.setData(_model.index(row, COL_DATE), QColor(Qt::red), Qt::ForegroundRole);    // mark text in red
             }
         }
 

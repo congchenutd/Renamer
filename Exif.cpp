@@ -46,7 +46,7 @@ QString Exif::getValue(const QString& property, bool fuzzy) const
 
     // fuzzy search
     for (Data::ConstIterator it = _data.begin(); it != _data.end(); ++it)
-        if (it.key().startsWith(property, Qt::CaseInsensitive))
+        if (it.key().contains(property, Qt::CaseInsensitive))
             return it.value();
     return QString();
 }
