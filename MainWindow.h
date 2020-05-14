@@ -1,11 +1,13 @@
 #pragma once
 
+#include "Exif.h"
 #include <QMainWindow>
 #include <QSet>
 #include <QSettings>
 #include <QStandardItemModel>
 #include <QFutureWatcher>
-#include "Exif.h"
+#include <QRunnable>
+#include <QObject>
 
 namespace Ui {
 class MainWindow;
@@ -13,6 +15,21 @@ class MainWindow;
 
 class QProgressBar;
 class QItemSelection;
+
+class ExifLoaderThread : public QObject, public QRunnable
+{
+    Q_OBJECT
+
+public:
+    ExifLoaderThread(const QString& filePath);
+    void run() override;
+
+signals:
+    void resultReady(const Exif& exif);
+
+private:
+    QString _filePath;
+};
 
 class MainWindow : public QMainWindow
 {
@@ -37,6 +54,7 @@ private slots:
     void onAbout();
     void onSelectionChanged(const QItemSelection& selection);
     void onFixDate();
+    void onExifLoaded(const Exif& exif);
 
 private:
     void addFiles(const QStringList& filePaths);
@@ -55,4 +73,6 @@ private:
     enum {COL_FROM, COL_TO, COL_DATE, COL_MODIFIED_DATE, COL_EXIF_DATE};
 
     QFutureWatcher<Exif> _watcher;
+
+    size_t _numLoadingFiles{0};
 };
