@@ -22,6 +22,12 @@ ExifLoaderThread::ExifLoaderThread(const QString &filePath) : _filePath(filePath
 }
 
 //////////////////////////////////////////////////////////////////////////////////
+
+namespace {
+constexpr auto ExifDateColor = Qt::darkGreen;
+constexpr auto ModifiedDateColor = Qt::blue;
+}
+
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::MainWindow),
@@ -106,9 +112,8 @@ void MainWindow::onExifLoaded(const Exif& exif)
     _model.setData(_model.index(row, COL_FROM), QDir::toNativeSeparators(filePath));
 
     QDateTime lastModifiedDateTime = QFileInfo(filePath).lastModified();
-    const auto lastModifiedDateTimeString = lastModifiedDateTime.toString(dateTimeFormat);
-    _model.setData(_model.index(row, COL_MODIFIED_DATE), lastModifiedDateTimeString);
-    _model.setData(_model.index(row, COL_DATE),          lastModifiedDateTimeString);
+    _model.setData(_model.index(row, COL_MODIFIED_DATE), lastModifiedDateTime.toString(dateTimeFormat));
+    _model.setData(_model.index(row, COL_MODIFIED_DATE), QColor(ModifiedDateColor), Qt::ForegroundRole);
 
     // fuzzy search for "create time" in exif
     QString exifDateString = exif.getValue(QStringList{"Create", "Creation"}, true);
@@ -121,20 +126,19 @@ void MainWindow::onExifLoaded(const Exif& exif)
     }
     const auto exifDateStringCaptured = match.captured(0);
 
-    // Correct date and mark it in red
+    // Set exif date
     QDateTime exifDateTime = QDateTime::fromString(exifDateStringCaptured, "yyyy:MM:dd hh:mm:ss");
-    _model.setData(_model.index(row, COL_EXIF_DATE), exifDateStringCaptured);
-
-    if (qAbs(exifDateTime.secsTo(lastModifiedDateTime)) > 60)   // allow 1 minute error
-    {
-        _model.setData(_model.index(row, COL_DATE), exifDateTime.toString(dateTimeFormat));     // use exif date
-        _model.setData(_model.index(row, COL_DATE), QColor(Qt::red), Qt::ForegroundRole);       // mark text in red
-    }
+    _model.setData(_model.index(row, COL_EXIF_DATE), exifDateTime.toString(dateTimeFormat));
+    _model.setData(_model.index(row, COL_EXIF_DATE), QColor(ExifDateColor), Qt::ForegroundRole);
 
     // Use modified date for video files
     if (videoFileExtensions.contains(QFileInfo(filePath).suffix()))
     {
         applyModifiedDate(row);
+    }
+    else
+    {
+        applyExifDate(row);
     }
 
     --_numLoadingFiles;
@@ -203,14 +207,30 @@ void MainWindow::applyModifiedDate(int row)
 {
     QString date = _model.data(_model.index(row, COL_MODIFIED_DATE)).toString();
     if (!date.isEmpty())
+    {
         _model.setData(_model.index(row, COL_DATE), date);
+
+        // Highlight when different
+        if (_model.data(_model.index(row, COL_EXIF_DATE)).toString() != date)
+        {
+            _model.setData(_model.index(row, COL_DATE), QColor(ModifiedDateColor), Qt::ForegroundRole);
+        }
+    }
 }
 
 void MainWindow::applyExifDate(int row)
 {
     QString date = _model.data(_model.index(row, COL_EXIF_DATE)).toString();
     if (!date.isEmpty())
+    {
         _model.setData(_model.index(row, COL_DATE), date);
+
+        // Highlight when different
+        if (_model.data(_model.index(row, COL_MODIFIED_DATE)).toString() != date)
+        {
+            _model.setData(_model.index(row, COL_DATE), QColor(ExifDateColor), Qt::ForegroundRole);
+        }
+    }
 }
 
 
