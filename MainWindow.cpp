@@ -12,6 +12,16 @@
 #include <QtConcurrent>
 #include <QThreadPool>
 
+Exif exifRunner(const QString& filePath)
+{
+    return Exif(filePath);
+};
+
+ExifLoaderThread::ExifLoaderThread(const QString &filePath) : _filePath(filePath)
+{
+}
+
+//////////////////////////////////////////////////////////////////////////////////
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::MainWindow),
@@ -28,23 +38,19 @@ MainWindow::MainWindow(QWidget *parent) :
     }
 
     _progressBar = new QProgressBar(this);
+    _progressBar->setFormat("%v/%m (%p%)");
     statusBar()->addPermanentWidget(_progressBar);
     _progressBar->hide();
 
     updateActions();
 
     _model.setColumnCount(5);
-    _model.setHeaderData(COL_FROM,      Qt::Horizontal, tr("From"));
-    _model.setHeaderData(COL_TO,        Qt::Horizontal, tr("To"));
-    _model.setHeaderData(COL_DATE,      Qt::Horizontal, tr("Date"));
-    _model.setHeaderData(COL_MODIFIED_DATE,  Qt::Horizontal, tr("Modified date"));
-    _model.setHeaderData(COL_EXIF_DATE, Qt::Horizontal, tr("Exif date"));
+    _model.setHorizontalHeaderLabels(QStringList{"From", "To", "Date", "Modified Date", "Exif Date"});
 
     ui->tableView->setModel(&_model);
     ui->tableView->sortByColumn(COL_DATE, Qt::AscendingOrder);
 
-    ui->actionUseModified   ->setEnabled(false);
-    ui->actionUseExif       ->setEnabled(false);
+    onSelectionChanged(QItemSelection());
 
     connect(ui->actionAdd,          SIGNAL(triggered()), SLOT(onAdd()));
     connect(ui->actionDel,          SIGNAL(triggered()), SLOT(onDel()));
@@ -58,6 +64,7 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(ui->tableView->selectionModel(), SIGNAL(selectionChanged(QItemSelection, QItemSelection)),
             SLOT(onSelectionChanged(QItemSelection)));
 
+    // For queued signal across threads
     qRegisterMetaType<Exif>("Exif");
 }
 
@@ -74,19 +81,10 @@ void MainWindow::dragEnterEvent(QDragEnterEvent* e)
 void MainWindow::dropEvent(QDropEvent* e)
 {
     QStringList filePaths;
-    foreach(const QUrl& url, e->mimeData()->urls())
+    for(const QUrl& url: e->mimeData()->urls())
         filePaths << url.toLocalFile();
 
     addFiles(filePaths);
-}
-
-Exif exifRunner(const QString& filePath)
-{
-    return Exif(filePath);
-};
-
-ExifLoaderThread::ExifLoaderThread(const QString &filePath) : _filePath(filePath)
-{
 }
 
 void ExifLoaderThread::run()
@@ -97,6 +95,9 @@ void ExifLoaderThread::run()
 void MainWindow::onExifLoaded(const Exif& exif)
 {
     const QString dateTimeFormat = "yyyy-MM-dd HH:mm:ss";
+    const QSet<QString> videoFileExtensions{"mp4", "mov"};
+
+    QMutexLocker lock(&_mutex);
 
     int row = _model.rowCount();
     _model.insertRow(row);
@@ -109,7 +110,10 @@ void MainWindow::onExifLoaded(const Exif& exif)
     _model.setData(_model.index(row, COL_MODIFIED_DATE), lastModifiedDateTimeString);
     _model.setData(_model.index(row, COL_DATE),          lastModifiedDateTimeString);
 
-    QString exifDateString = exif.getValue("Create", true); // fuzzy search "create" in exif
+    // fuzzy search for "create time" in exif
+    QString exifDateString = exif.getValue(QStringList{"Create", "Creation"}, true);
+
+    // Capture the useful part of the date string
     QRegularExpression regex(R"(\d+:\d+:\d+\s+\d+:\d+:\d+)");
     QRegularExpressionMatch match = regex.match(exifDateString);
     if (!match.hasMatch()) {
@@ -127,13 +131,18 @@ void MainWindow::onExifLoaded(const Exif& exif)
         _model.setData(_model.index(row, COL_DATE), QColor(Qt::red), Qt::ForegroundRole);       // mark text in red
     }
 
+    // Use modified date for video files
+    if (videoFileExtensions.contains(QFileInfo(filePath).suffix()))
+    {
+        applyModifiedDate(row);
+    }
+
     --_numLoadingFiles;
     _progressBar->setValue(_progressBar->maximum() - _numLoadingFiles);
     ui->tableView->resizeColumnsToContents();
     if (_numLoadingFiles == 0)
     {
         _progressBar->hide();
-        ui->tableView->resizeColumnsToContents();
         ui->tableView->sortByColumn(COL_DATE, Qt::AscendingOrder);
         updateActions();
     }
@@ -141,6 +150,7 @@ void MainWindow::onExifLoaded(const Exif& exif)
 
 void MainWindow::addFiles(const QStringList& filePaths)
 {
+    // Find new files
     QStringList newFiles;
     for (const auto& filePath: filePaths)
     {
@@ -158,6 +168,7 @@ void MainWindow::addFiles(const QStringList& filePaths)
     _progressBar->setRange(0, newFiles.count());
     _progressBar->setValue(0);
 
+    // Start multi-threaded loading
     for (const auto& filePath: newFiles)
     {
         auto loader = new ExifLoaderThread(filePath);
@@ -177,36 +188,45 @@ void MainWindow::onAdd()
 void MainWindow::onDel()
 {
     QList<int> rows;
-    foreach (const QModelIndex& idx, getSelected())
+    for (const QModelIndex& idx: getSelected())
         rows.append(idx.row());
 
-    qSort(rows.begin(), rows.end(), qGreater<int>());
-    foreach (int row, rows)
+    std::sort(std::begin(rows), std::end(rows), std::greater<int>());
+    for (int row: rows)
     {
         _filePaths.remove(_model.data(_model.index(row, COL_FROM)).toString());
         _model.removeRow(row);
     }
 }
 
+void MainWindow::applyModifiedDate(int row)
+{
+    QString date = _model.data(_model.index(row, COL_MODIFIED_DATE)).toString();
+    if (!date.isEmpty())
+        _model.setData(_model.index(row, COL_DATE), date);
+}
+
+void MainWindow::applyExifDate(int row)
+{
+    QString date = _model.data(_model.index(row, COL_EXIF_DATE)).toString();
+    if (!date.isEmpty())
+        _model.setData(_model.index(row, COL_DATE), date);
+}
+
+
 void MainWindow::onUseModified()
 {
-    foreach (const QModelIndex& idx, getSelected())
+    for (const QModelIndex& idx: getSelected())
     {
-        int row = idx.row();
-        QString date = _model.data(_model.index(row, COL_MODIFIED_DATE)).toString();
-        if (!date.isEmpty())
-            _model.setData(_model.index(row, COL_DATE), date);
+        applyModifiedDate(idx.row());
     }
 }
 
 void MainWindow::onUseExif()
 {
-    foreach (const QModelIndex& idx, getSelected())
+    for (const QModelIndex& idx: getSelected())
     {
-        int row = idx.row();
-        QString date = _model.data(_model.index(row, COL_EXIF_DATE)).toString();
-        if (!date.isEmpty())
-            _model.setData(_model.index(row, COL_DATE), date);
+        applyExifDate(idx.row());
     }
 }
 
@@ -295,7 +315,7 @@ void MainWindow::onSettings()
 void MainWindow::onAbout() {
     QMessageBox::about(this, tr("About"),
                        tr("<h3><b>Renamer</b></h3>"
-                          "<p>Built on 12/27/2018</p>"
+                          "<p>Built on 05/14/2020</p>"
                           "<p><a href=mailto:CongChenUTD@Gmail.com>CongChenUTD@Gmail.com</a></p>"));
 }
 
@@ -324,7 +344,7 @@ QModelIndexList MainWindow::getSelected() const {
 
 void MainWindow::updateActions()
 {
-    ui->actionEmpty     ->setEnabled(_model.rowCount() > 0);
-    ui->actionRename    ->setEnabled(_model.rowCount() > 0);
-    ui->actionFixDate   ->setEnabled(_model.rowCount() > 0);
+    ui->actionEmpty  ->setEnabled(_model.rowCount() > 0);
+    ui->actionRename ->setEnabled(_model.rowCount() > 0);
+    ui->actionFixDate->setEnabled(_model.rowCount() > 0);
 }

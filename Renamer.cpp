@@ -7,12 +7,6 @@
 #include <QRegularExpression>
 #include <cmath>
 
-/**
- * @brief Rename a list of files based on a given template
- * @param settings  - the renaming template
- * @param fileInfos - the list of files
- * @return          - a list of new names
- */
 QStringList Renamer::run(QSettings* settings, const QFileInfoList& fileInfos, const QList<QDateTime>& dateTimes)
 {
     QMap<QDate, int> date2Count;   // date -> total # of files on that date
@@ -34,16 +28,6 @@ QStringList Renamer::run(QSettings* settings, const QFileInfoList& fileInfos, co
     return result;
 }
 
-/**
- * @brief Get the new name of a file based on a template
- * @param settings  - renaming template
- * @param fileInfo  - the file to be renamed
- * @param newPaths  - paths of files already renamed yet to be written to disk
- * @param groupSize - # of files in the same-dated file group
- * @param index     - index of this file in the group
- * @param length    - length of the index (ie, how many digits)
- * @return          - a valid new name
- */
 QString Renamer::run(QSettings* settings, const QFileInfo& fileInfo, const QDateTime& dateTime,
                      const QStringList& newFilePaths, int groupSize, int index, int length)
 {
@@ -80,12 +64,6 @@ QString Renamer::run(QSettings* settings, const QFileInfo& fileInfo, const QDate
     return getValidFilePath(filePath, newFilePaths);    // check duplication
 }
 
-/**
- * @brief Attemps to find a valid name that a given file can be renamed to.
- * @param filePath  - the file to be renamed
- * @param newPaths  - paths of files already renamed yet to be written to disk
- * @return          - A valid new file path
- */
 QString Renamer::getValidFilePath(const QString& filePath, const QStringList& newFilePaths)
 {
     // No duplication, return

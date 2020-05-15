@@ -3,8 +3,9 @@
 #include <QMap>
 #include <QString>
 
-class Photo;
-
+///
+/// @brief Models the EXIF of a file
+///
 class Exif
 {
 public:
@@ -12,12 +13,18 @@ public:
 
     Exif() = default;
     Exif(const QString& filePath);
+
     Data getData() const;
     QString getValue(const QString& property, bool fuzzy = false) const;
+    QString getValue(const QStringList& properties, bool fuzzy = false) const;
+
     void setValue(const QString& property, const QString& value);
     QString getFilePath() const;
 
 private:
+    // Key value pairs
     Data _data;
+
+    // File path
     QString _filePath;
 };

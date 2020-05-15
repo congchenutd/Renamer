@@ -1,8 +1,6 @@
 #include "Exif.h"
 
 #include <QFile>
-#include <QJsonDocument>
-#include <QJsonObject>
 #include <QProcess>
 #include <QSettings>
 
@@ -16,20 +14,19 @@ Exif::Exif(const QString& filePath) : _filePath(filePath)
     if (exiftoolPath.isEmpty() || !QFile::exists(exiftoolPath))
         return;
 
+    // Run the exiftool
     QProcess* process = new QProcess;
     process->start(exiftoolPath, QStringList() << _filePath);
     process->waitForFinished();
 
-    QStringList list = QString(process->readAllStandardOutput()).split("\n");
-    foreach (QString line, list)
+    const QStringList& propertyList = QString(process->readAllStandardOutput()).split("\n");
+    for (QString line: propertyList)
     {
-        int indexColon = line.indexOf(':');
-        if (indexColon > 0)
+        if (const int indexColon = line.indexOf(':'); indexColon > 0)
         {
-            QString property    = line.left(indexColon).simplified();
-            QString value       = line.right(line.length() - indexColon - 1).simplified();
-            if (!_data.contains(property))
-                _data.insert(property, value);
+            const QString property    = line.left(indexColon).simplified();
+            const QString value       = line.right(line.length() - indexColon - 1).simplified();
+            setValue(property, value);
         }
     }
 }
@@ -48,7 +45,20 @@ QString Exif::getValue(const QString& property, bool fuzzy) const
     for (Data::ConstIterator it = _data.begin(); it != _data.end(); ++it)
         if (it.key().contains(property, Qt::CaseInsensitive))
             return it.value();
-    return QString();
+    return {};
+}
+
+QString Exif::getValue(const QStringList& properties, bool fuzzy) const
+{
+    for (const auto& property: properties)
+    {
+        const auto value = getValue(property, fuzzy);
+        if (!value.isEmpty())
+        {
+            return value;
+        }
+    }
+    return {};
 }
 
 void Exif::setValue(const QString& property, const QString& value) {

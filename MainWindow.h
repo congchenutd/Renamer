@@ -61,8 +61,12 @@ private:
     void preview();
     void updateActions();
     QModelIndexList getSelected() const;
+    void applyModifiedDate(int row);
+    void applyExifDate(int row);
 
 private:
+    enum {COL_FROM, COL_TO, COL_DATE, COL_MODIFIED_DATE, COL_EXIF_DATE};
+
     Ui::MainWindow* ui;
     QStandardItemModel  _model;
     QProgressBar*       _progressBar;
@@ -70,9 +74,9 @@ private:
 
     QSet<QString>       _filePaths;
 
-    enum {COL_FROM, COL_TO, COL_DATE, COL_MODIFIED_DATE, COL_EXIF_DATE};
+    // Number of files that are currently being loaded
+    int _numLoadingFiles{0};
 
-    QFutureWatcher<Exif> _watcher;
-
-    size_t _numLoadingFiles{0};
+    // Single-threaded writing into the model
+    QMutex _mutex;
 };
